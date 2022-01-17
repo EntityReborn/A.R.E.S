@@ -12,6 +12,8 @@ using static BaseFuncs.BaseFuncs;
 using static Patches.Patches;
 using static Buttons.Buttons;
 using System.Threading;
+using System.IO;
+using AvatarLogger.Database;
 //Melon mod information
 [assembly: MelonGame("VRChat")]
 [assembly: MelonInfo(typeof(AvatarLogger.Main), "A.R.E.S Logger", "3.5", "By LargestBoi & Yui")]
@@ -51,6 +53,8 @@ namespace AvatarLogger
                 MelonLogger.Msg("OnEvent patch applied (1/2)");
                 MelonCoroutines.Start(OnNetworkManagerInit());
                 MelonLogger.Msg("Network manager patched (2/2)");
+                DatabaseManager.Startup();
+                MelonLogger.Msg($"Database started up: {DatabaseManager.GetDatabase().GetType()}");
                 MelonLogger.Msg("Avatars can now be logged!");
             }
             catch

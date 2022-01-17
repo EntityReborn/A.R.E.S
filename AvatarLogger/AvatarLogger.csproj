@@ -87,10 +87,15 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Database.Text\AvatarInfo.cs" />
+    <Compile Include="Database.Text\TextDatabase.cs" />
+    <Compile Include="Database\DatabaseManager.cs" />
+    <Compile Include="Database\IAvatarInfo.cs" />
     <Compile Include="BasicFunctions.cs" />
     <Compile Include="Buttons.cs" />
     <Compile Include="Config.cs" />
     <Compile Include="ConfigHelper.cs" />
+    <Compile Include="Database\IDatabase.cs" />
     <Compile Include="Logging.cs" />
     <Compile Include="Main.cs" />
     <Compile Include="Patches.cs" />

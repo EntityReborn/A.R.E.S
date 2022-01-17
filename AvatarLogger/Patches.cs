@@ -5,6 +5,8 @@ using ExitGames.Client.Photon;
 using Newtonsoft.Json;
 using static BaseFuncs.BaseFuncs;
 using static Logging.Logging;
+using System.IO;
+using MelonLoader;
 //Contains all patches ARES makes to VRChat
 namespace Patches
 {
@@ -34,7 +36,10 @@ namespace Patches
                     ExecuteLog(playerHashtable["251"]);
                 }
             }
-            catch { }
+            catch (System.Exception ex) {
+                MelonLogger.LogError($"Error detouring! {ex.Message}\r\n{ex.StackTrace}", ex.StackTrace);
+            }
+
             return true;
         }
     }

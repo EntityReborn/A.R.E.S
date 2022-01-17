@@ -5,6 +5,7 @@ using System.IO;
 using System;
 using System.Text;
 using static AvatarLogger.Main;
+using AvatarLogger.Database;
 //Contains code responsible for the actual logging of avatars themsleves
 namespace Logging
 {
@@ -22,6 +23,21 @@ namespace Logging
         //Executes logging of the avatar
         public static void ExecuteLog(dynamic playerHashtable)
         {
+            var aviDict = playerHashtable["avatarDict"];
+
+            //Get database handler and get ready to throw avis in it.
+            var db = DatabaseManager.GetDatabase();
+            if (db == null)
+            {
+                //Shouldn't happen, but apparently we didn't find a database to log to
+                if (Config.ConsoleError)
+                {
+                    MelonLogger.Msg($"{aviDict["name"].ToString()} was not logged, there's no database loaded!");
+                    
+                }
+                return;
+            }
+
             //If avatar loggin is enabled
             if (Config.LogAvatars)
             {
@@ -29,22 +45,22 @@ namespace Logging
                 if (!Config.LogPublicAvatars)
                 {
                     //Check to see if the avatar is public and refuse to log if so
-                    if (playerHashtable["avatarDict"]["releaseStatus"].ToString() == "public") { return; }
+                    if (aviDict["releaseStatus"].ToString() == "public") { return; }
                 }
                 //If logging of private avatars is disabled
                 if (!Config.LogPrivateAvatars)
                 {
                     //Check to see if the avatar is private and refuse to log if so
-                    if (playerHashtable["avatarDict"]["releaseStatus"].ToString() == "private") { return; }
+                    if (aviDict["releaseStatus"].ToString() == "private") { return; }
                 }
                 //If logging own avatars is disabled
                 if (!Config.LogOwnAvatars)
                 {
                     //Check if the avatar about to be uploaded belongs to the user and was uploaded from their account
-                    if (APIUser.CurrentUser.id == playerHashtable["avatarDict"]["authorId"].ToString())
+                    if (APIUser.CurrentUser.id == aviDict["authorId"].ToString())
                     {
                         //If the avatar was uploaded by the user inform them the avatr was not logged and why it was not logged
-                        if (Config.ConsoleError) { MelonLogger.Msg($"Your avatar {playerHashtable["avatarDict"]["name"].ToString()} was not logged, you have log own avatars disabled!"); }
+                        if (Config.ConsoleError) { MelonLogger.Msg($"Your avatar {aviDict["name"].ToString()} was not logged, you have log own avatars disabled!"); }
                         return;
                     }
                 }
@@ -52,40 +68,36 @@ namespace Logging
                 if (!Config.LogFriendsAvatars)
                 {
                     //Check if the avatar about to be logged is uploaded by a friend
-                    if (FriendIDs.Contains(playerHashtable["avatarDict"]["authorId"].ToString()))
+                    if (FriendIDs.Contains(aviDict["authorId"].ToString()))
                     {
                         //If the user is a friend inform the user the log has not occurred and why so
-                        if (Config.ConsoleError) { MelonLogger.Msg($"{playerHashtable["avatarDict"]["authorName"].ToString()}'s avatar {playerHashtable["avatarDict"]["name"].ToString()} was not logged, they are a friend!"); }
+                        if (Config.ConsoleError) { MelonLogger.Msg($"{aviDict["authorName"].ToString()}'s avatar {aviDict["name"].ToString()} was not logged, they are a friend!"); }
                         return;
                     }
                 }
-                //Locate the log file
-                string AvatarFile = "GUI\\Log.txt";
-                //If the log file does not exist create it and append the credits of the mod
-                if (!File.Exists(AvatarFile))
-                { File.AppendAllText(AvatarFile, "Mod By LargestBoi & Yui\n"); }
-                //Read the entire contents of the log file
-                string AvatarFileContents = File.ReadAllText(AvatarFile);
+
                 //If the hash table passed into the method contains a new avatar ID that is not already present within the log file
-                if (!AvatarFileContents.Contains(playerHashtable["avatarDict"]["id"].ToString()))
+                if (!db.HasAvatarId(aviDict["id"].ToString()))
                 {
-                    //Log the following variables to the log file
-                    File.AppendAllLines(AvatarFile, new string[]
-                    {
-                    //Obtains the cuttent system date/time in unix and logs it as the time the avatar was detected
-                    $"Time Detected:{((DateTimeOffset)DateTime.Now).ToUnixTimeSeconds().ToString()}",
-                    //Continues to extract more data from the hash table and write it to the log file such as:
-                    //Avatar ID, Name, Description, Author ID, Author Name and the PC Asset URL
-                    $"Avatar ID:{playerHashtable["avatarDict"]["id"]}",
-                    $"Avatar Name:{playerHashtable["avatarDict"]["name"]}",
-                    $"Avatar Description:{playerHashtable["avatarDict"]["description"]}",
-                    $"Author ID:{playerHashtable["avatarDict"]["authorId"]}",
-                    $"Author Name:{playerHashtable["avatarDict"]["authorName"]}",
-                    });
+                    //Ask DB to create a new avatar instance
+                    var avi = db.NewAvatar();
+
+                    //Base avi information
+                    avi.Id = aviDict["id"].ToString();
+                    avi.Name = aviDict["name"].ToString();
+                    avi.Description = aviDict["description"].ToString();
+                    avi.AuthorId = aviDict["authorId"].ToString();
+                    avi.AuthorName = aviDict["authorName"].ToString();
+                    avi.ImageURL = aviDict["imageUrl"].ToString();
+                    avi.ThumbnailImageUrl = aviDict["thumbnailImageUrl"].ToString();
+                    avi.ReleaseStatus = aviDict["releaseStatus"].ToString();
+
                     //New optimised Quest/PC asset URL logging 
                     string pcasset = "None";
                     string qasset = "None";
-                    foreach (dynamic unitypackage in playerHashtable["avatarDict"]["unityPackages"])
+
+                    //Find what packages are exposed by this avatar
+                    foreach (dynamic unitypackage in aviDict["unityPackages"])
                     {
                         try
                         {
@@ -110,37 +122,35 @@ namespace Logging
                         }
                         catch { }
                     }
-                    File.AppendAllLines(AvatarFile, new string[]
-                    {
-                    $"PC Asset URL:{pcasset}",
-                    $"Quest Asset URL:{qasset}",
-                    $"Image URL:{playerHashtable["avatarDict"]["imageUrl"]}",
-                    $"Thumbnail URL:{playerHashtable["avatarDict"]["thumbnailImageUrl"]}",
-                    $"Unity Version:{playerHashtable["avatarDict"]["unityPackages"][0]["unityVersion"]}",
-                    $"Release Status:{playerHashtable["avatarDict"]["releaseStatus"]}",
-                    });
-                    //Adjust counter values to whatever the avatrs relese status is
-                    string rs = playerHashtable["avatarDict"]["releaseStatus"].ToString();
-                    if (rs == "public") { Pub = Pub + 1; };
-                    if (rs == "private") { Pri = Pri = 1; };
+
+                    avi.PCAssetURL = pcasset;
+                    avi.QuestAssetURL = qasset;
+                    avi.UnityVersion = aviDict["unityPackages"][0]["unityVersion"].ToString();
+
+                    //Adjust counter values to whatever the avatars release status is
+                    if (avi.ReleaseStatus == "public") { Pub = Pub + 1; };
+                    if (avi.ReleaseStatus == "private") { Pri = Pri = 1; };
+
                     //The last variables extracted are the tags of the avatar, these are added by the avatar uploader or by VRChat administrators/developers,
                     //they are initally stored as an array, if no tags are set the if statemnt will just continue with its else
-                    if (playerHashtable["avatarDict"]["tags"].Count > 0)
+                    if (aviDict["tags"].Count > 0)
                     {
-                        //Prepares to create a string from the array of tags
-                        StringBuilder builder = new StringBuilder();
-                        //Adds the text "Tags: " to the string being created as an identifer
-                        builder.Append("Tags: ");
-                        //For every value in the tags array add it to the string being created
-                        foreach (string tag in playerHashtable["avatarDict"]["tags"]) { builder.Append($"{tag},"); }
-                        //Write the final created string into the log file containing all extracted and sorted tags
-                        File.AppendAllText(AvatarFile, builder.ToString().Remove(builder.ToString().LastIndexOf(",")));
+                        foreach (string tag in aviDict["tags"]) {
+                            avi.Tags.Add(tag);
+                        }
                     }
                     //If there are no tags present the default text "Tags: None" is written into the log file
-                    else { File.AppendAllText(AvatarFile, "Tags: None"); }
+                    else { 
+                        avi.Tags.Add("None"); 
+                    }
+
                     //Inform the user of the successful log
-                    if (Config.LogToConsole) { MelonLogger.Msg($"Logged: {playerHashtable["avatarDict"]["name"]}|{playerHashtable["avatarDict"]["releaseStatus"]}!"); }
-                    File.AppendAllText(AvatarFile, "\n\n");
+                    if (Config.LogToConsole) { 
+                        MelonLogger.Msg($"Logged: {avi.Name}|{avi.ReleaseStatus}!"); 
+                    };
+
+                    //Tell the database to save the avatar data
+                    db.SaveAvatar(avi);
                 }
             }
         }
