@@ -11,14 +11,15 @@ namespace AvatarLogger.Database.Text
     {
         private string AvatarFile { get; set; } = "GUI\\Log.txt";
 
-        private string AvatarFileContents()
-        {
-            return File.ReadAllText(AvatarFile);
-        }
-
         bool IDatabase.HasAvatarId(string id)
         {
-            return AvatarFileContents().Contains(id);
+            var lines = File.ReadLines(AvatarFile);
+            foreach (var line in lines)
+            {
+                if (line.Contains(id)) return true;
+            }
+
+            return false;
         }
 
         void IDatabase.Load()
